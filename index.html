@@ -1,304 +1,484 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Impressionante Simples</title>
-<style>
-  :root{
-    --bg1:#06040a;
-    --bg2:#081028;
-  }
-  html,body{height:100%;margin:0;background:linear-gradient(135deg,var(--bg1),var(--bg2));font-family:Inter,system-ui,Arial;color:#fff;overflow:hidden}
-  .wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
-  canvas{display:block;width:100vw;height:100vh}
-  .ui{
-    position:fixed;left:18px;top:18px;background:rgba(255,255,255,0.04);backdrop-filter:blur(6px);padding:8px 12px;border-radius:10px;font-weight:600;font-size:13px;
-    box-shadow:0 8px 30px rgba(0,0,0,0.5);
-  }
-  .hint{position:fixed;right:18px;bottom:18px;background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:10px;font-size:13px}
-  @media (max-width:520px){ .ui,.hint{font-size:12px;padding:6px 8px} }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Surpresa</title>
+  <style>
+    :root{
+      --bg1:#0f1022;
+      --bg2:#081027;
+      --accent1:#ff5fa8;
+      --accent2:#7c4dff;
+      --accent3:#00f0ff;
+    }
+    html,body{height:100%;margin:0;background:linear-gradient(120deg,var(--bg1),var(--bg2));font-family:Inter,system-ui,Arial;}
+    .wrap{
+      height:100vh;
+      display:grid;
+      place-items:center;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      overflow:hidden;
+    }
+
+    /* center card */
+    .stage{
+      width:min(920px,94vw);
+      aspect-ratio:16/9;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(255,95,168,0.06), transparent 8%),
+                  radial-gradient(900px 400px at 90% 90%, rgba(124,77,255,0.04), transparent 6%),
+                  rgba(255,255,255,0.02);
+      border-radius:22px;
+      box-shadow: 0 10px 40px rgba(2,6,23,0.7), inset 0 1px 0 rgba(255,255,255,0.02);
+      position:relative;
+      overflow:hidden;
+      transform:translateZ(0);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    /* subtle glass panel */
+    .hud{
+      position:absolute;
+      top:18px; left:18px;
+      color:rgba(255,255,255,0.85);
+      font-weight:600;
+      letter-spacing:0.6px;
+      font-size:13px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      padding:8px 12px;
+      border-radius:12px;
+      backdrop-filter: blur(6px) saturate(1.2);
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+
+    .hud .dot{width:9px;height:9px;border-radius:50%;background:var(--accent1);box-shadow:0 0 14px var(--accent1);}
+
+    /* canvas covers stage */
+    canvas{
+      display:block;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+
+    /* bottom-left floating control hints */
+    .hint{
+      position:absolute;
+      left:18px; bottom:18px;
+      font-size:12px;
+      color:rgba(255,255,255,0.8);
+      background:linear-gradient(180deg, rgba(0,0,0,0.32), rgba(255,255,255,0.02));
+      padding:8px 10px;border-radius:10px;
+      backdrop-filter: blur(6px);
+    }
+
+    /* top-right radial overlay */
+    .glow{
+      position:absolute;
+      right:-30%; top:-30%;
+      width:80%; height:80%;
+      background: radial-gradient(circle at 20% 30%, rgba(255,95,168,0.14), rgba(124,77,255,0.10) 30%, rgba(0,240,255,0.06) 55%, transparent 60%);
+      filter:blur(60px);
+      pointer-events:none;
+      mix-blend-mode:screen;
+    }
+
+    /* subtle footer label */
+    .badge{
+      position:absolute;
+      right:18px; bottom:18px;
+      font-size:11px;color:rgba(255,255,255,0.7);
+      padding:7px 10px;border-radius:10px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.2));
+      backdrop-filter: blur(6px);
+    }
+
+    /* responsive tweaks */
+    @media (max-width:600px){
+      .stage{border-radius:14px}
+      .hud{font-size:12px;padding:6px 8px}
+      .hint{font-size:11px}
+    }
+  </style>
 </head>
 <body>
   <div class="wrap">
-    <canvas id="c"></canvas>
-    <div class="ui">Toque / Clique / Arraste</div>
-    <div class="hint">Clique para explodir • Segure para atrair</div>
+    <div class="stage" id="stage">
+      <div class="hud"><div class="dot"></div> toque/click — explore</div>
+      <canvas id="c"></canvas>
+      <div class="glow"></div>
+      <div class="hint">Clique, segure ou arraste</div>
+      <div class="badge">✨feito com HTML • CSS • JS</div>
+    </div>
   </div>
 
-<script>
-(() => {
+  <script>
+  // ---------- Utils ----------
+  const TAU = Math.PI * 2;
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const rand = (a,b)=>a + Math.random()*(b-a);
+  const randInt = (a,b)=>Math.floor(rand(a,b+1));
+
+  // ---------- Setup ----------
   const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d', { alpha: true });
-  let DPR = Math.min(2, devicePixelRatio || 1);
+  const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+  let DPR = Math.min(2, window.devicePixelRatio || 1);
 
   function resize(){
-    DPR = Math.min(2, devicePixelRatio || 1);
+    DPR = Math.min(2, window.devicePixelRatio || 1);
     const rect = canvas.getBoundingClientRect();
     canvas.width = Math.floor(rect.width * DPR);
     canvas.height = Math.floor(rect.height * DPR);
     ctx.setTransform(DPR,0,0,DPR,0,0);
   }
-  // make canvas fill viewport
-  function fillToViewport(){
-    canvas.style.width = window.innerWidth + 'px';
-    canvas.style.height = window.innerHeight + 'px';
-    resize();
+  window.addEventListener('resize', resize, {passive:true});
+  resize();
+
+  // ---------- Heart path parametric ----------
+  // parametric heart function (x(t), y(t)) centered in given box
+  function heartPoint(t, size){
+    // classic heart parametric scaled
+    // t in [0,2PI]
+    const x = 16*Math.pow(Math.sin(t),3);
+    const y = 13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t);
+    return {x: x * size, y: -y * size}; // invert y
   }
-  window.addEventListener('resize', fillToViewport, {passive:true});
-  fillToViewport();
 
-  const TAU = Math.PI*2;
-  const particles = [];
-  const maxParticles = 900;
+  // convert parametric to polygon approximations
+  function buildHeartPath(cx, cy, size, rotation=0){
+    const pts = [];
+    const steps = 180;
+    for(let i=0;i<=steps;i++){
+      const t = i/steps * TAU;
+      const p = heartPoint(t, size);
+      // rotate
+      const rx = p.x*Math.cos(rotation) - p.y*Math.sin(rotation);
+      const ry = p.x*Math.sin(rotation) + p.y*Math.cos(rotation);
+      pts.push({x: cx + rx, y: cy + ry});
+    }
+    return pts;
+  }
 
-  function rand(a,b){ return a + Math.random()*(b-a); }
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-
-  class P {
-    constructor(x,y,vx,vy,size,hue,life,blend='lighter'){
-      this.x = x; this.y = y;
-      this.vx = vx; this.vy = vy;
-      this.size = size; this.h = hue; this.life = life; this.maxLife = life;
-      this.blend = blend;
+  // ---------- Particles ----------
+  class Particle{
+    constructor(x,y, vx, vy, size, life, hue, glow){
+      this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+      this.size = size; this.life = life; this.maxLife = life;
+      this.hue = hue; this.glow = glow;
+      this.drag = 0.992 - Math.random()*0.005;
+      this.spin = (Math.random()-0.5)*0.04;
     }
     update(dt){
-      this.vx *= 0.995;
-      this.vy *= 0.995;
-      this.vy += 40 * dt; // subtle gravity
-      this.x += this.vx * dt;
-      this.y += this.vy * dt;
+      this.vx *= this.drag;
+      this.vy *= this.drag;
+      this.vy += 20*dt; // gravity
+      this.x += this.vx*dt;
+      this.y += this.vy*dt;
+      this.size *= (1 - 0.14*dt);
       this.life -= dt;
-      this.size *= (1 - 0.12*dt);
     }
     draw(ctx){
-      const a = clamp(this.life/this.maxLife,0,1);
+      const alpha = clamp(this.life/this.maxLife, 0,1);
       ctx.save();
-      ctx.globalCompositeOperation = this.blend;
-      const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, Math.max(2,this.size*6));
-      g.addColorStop(0, `hsla(${this.h},95%,65%,${0.9*a})`);
-      g.addColorStop(0.55, `hsla(${(this.h+30)%360},95%,45%,${0.28*a})`);
-      g.addColorStop(1, `rgba(0,0,0,0)`);
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.spin);
+      const g = ctx.createRadialGradient(0,0,this.size*0.1, 0,0,this.size*1.6);
+      g.addColorStop(0, `hsla(${this.hue},95%,65%,${alpha})`);
+      g.addColorStop(1, `hsla(${(this.hue+40)%360},90%,40%,0)`);
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(this.x, this.y, Math.max(0.6,this.size), 0, TAU);
+      ctx.arc(0,0,this.size,0,TAU);
+      ctx.fill();
+      ctx.restore();
+
+      if(this.glow){
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = `hsla(${this.hue},95%,65%,${alpha*0.08})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size*6, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  const particles = [];
+
+  function emitBurst(x,y, count=40, hueBase=330){
+    for(let i=0;i<count;i++){
+      const ang = rand(0,TAU);
+      const spd = rand(60,420);
+      const vx = Math.cos(ang)*spd;
+      const vy = Math.sin(ang)*spd;
+      const sz = rand(3,16);
+      const life = rand(0.6,1.7);
+      const hue = (hueBase + rand(-30,40)) % 360;
+      const glow = Math.random() > 0.2;
+      particles.push(new Particle(x,y,vx,vy,sz,life,hue,glow));
+    }
+  }
+
+  // gentle continuous emitter along heart
+  let timeSinceEmit = 0;
+
+  // ---------- Interactive heart pulse ----------
+  let pulse = 0;
+  let pulseTarget = 0;
+  let t = 0;
+
+  // heart path for collision checks and fill
+  function drawHeartFilled(ctx, cx, cy, size, phaseRotation, gradient){
+    const pts = buildHeartPath(cx, cy, size, phaseRotation);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for(let i=1;i<pts.length;i++){
+      ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    ctx.restore();
+    return pts;
+  }
+
+  // helper: point inside polygon (ray-casting)
+  function pointInPoly(x,y, poly){
+    let inside=false;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+      const xi=poly[i].x, yi=poly[i].y;
+      const xj=poly[j].x, yj=poly[j].y;
+      const intersect = ((yi>y) !== (yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi);
+      if(intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  // ---------- Mouse / Touch ----------
+  const stage = document.getElementById('stage');
+  let pointer = {x:0,y:0,down:false};
+  function setPointerFromEvent(e){
+    const r = canvas.getBoundingClientRect();
+    let clientX, clientY;
+    if(e.touches && e.touches[0]) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+    else { clientX = e.clientX; clientY = e.clientY; }
+    pointer.x = (clientX - r.left);
+    pointer.y = (clientY - r.top);
+  }
+
+  window.addEventListener('pointerdown', (ev)=>{ pointer.down=true; setPointerFromEvent(ev); pointer.id=ev.pointerId; pulseTarget=1.9; emitBurst(pointer.x, pointer.y, 55, 330); });
+  window.addEventListener('pointermove', (ev)=>{ setPointerFromEvent(ev); if(pointer.down){ emitBurst(pointer.x,pointer.y, 6, 320); }} , {passive:true});
+  window.addEventListener('pointerup', ()=>{ pointer.down=false; pulseTarget=0; });
+  window.addEventListener('pointercancel', ()=>{ pointer.down=false; pulseTarget=0; });
+
+  // ---------- Floating hearts (soft shapes) ----------
+  class Floating{
+    constructor(x,y,size,hue,delay){
+      this.x=x; this.y=y; this.size=size; this.hue=hue; this.delay=delay;
+      this.phase = Math.random()*TAU;
+    }
+    update(dt){
+      this.phase += dt*(0.6 + this.size*0.02);
+      this.y += Math.sin(this.phase*0.7 + this.delay)*0.2;
+      this.x += Math.cos(this.phase*0.8 + this.delay)*0.12;
+    }
+    draw(ctx, pts){
+      // draw small heart at x,y relative to stage
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.scale(1,1);
+      ctx.beginPath();
+      // simple heart using bezier
+      const s = this.size;
+      ctx.moveTo(0, -s*0.45);
+      ctx.bezierCurveTo(s*0.5, -s*0.85, s*1.3, -s*0.2, 0, s*0.8);
+      ctx.bezierCurveTo(-s*1.3, -s*0.2, -s*0.5, -s*0.85, 0, -s*0.45);
+      ctx.closePath();
+      ctx.fillStyle = `hsla(${this.hue},92%,60%,0.88)`;
       ctx.fill();
       ctx.restore();
     }
   }
 
-  // background gradient + moving orbs
-  let bigOrbs = [];
-  function makeOrbs(){
-    bigOrbs = [];
-    const W = canvas.width / DPR, H = canvas.height / DPR;
-    for(let i=0;i<6;i++){
-      bigOrbs.push({
-        x: rand(0,W),
-        y: rand(0,H),
-        r: rand(Math.min(W,H)*0.06, Math.min(W,H)*0.16),
-        h: rand(220,320),
-        ang: rand(0,Math.PI*2),
-        speed: rand(0.02,0.06)
-      });
-    }
-  }
-  makeOrbs();
-
-  // interaction
-  const pointer = {x:0,y:0,down:false,downAt:0,dragX:0,dragY:0};
-  canvas.addEventListener('pointerdown', (e)=>{
-    const r = canvas.getBoundingClientRect();
-    pointer.x = e.clientX - r.left;
-    pointer.y = e.clientY - r.top;
-    pointer.down = true;
-    pointer.downAt = performance.now();
-    pointer.dragX = pointer.dragY = 0;
-    // small direct burst
-    burst(pointer.x, pointer.y, 28, rand(260,340));
-  });
-  canvas.addEventListener('pointermove', (e)=>{
-    const r = canvas.getBoundingClientRect();
-    const nx = e.clientX - r.left;
-    const ny = e.clientY - r.top;
-    pointer.dragX = nx - pointer.x;
-    pointer.dragY = ny - pointer.y;
-    pointer.x = nx; pointer.y = ny;
-    // trailing particles while dragging
-    if(pointer.down){
-      for(let i=0;i<2;i++){
-        pushParticle(pointer.x + rand(-6,6), pointer.y + rand(-6,6),
-                     pointer.dragX*8 + rand(-40,40), pointer.dragY*8 + rand(-40,40),
-                     rand(2,8), rand(300,380), rand(0.4,1.2));
-      }
-    }
-  }, {passive:true});
-  canvas.addEventListener('pointerup', (e)=>{
-    pointer.down = false;
-    // if it was a quick click -> big bloom
-    const dt = performance.now() - pointer.downAt;
-    if(dt < 220) bigBloom(pointer.x, pointer.y);
-  });
-
-  // touch fallback: prevent scrolling on touch hold drag
-  canvas.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
-
-  function pushParticle(x,y,vx,vy,size,hue,life){
-    if(particles.length > maxParticles) particles.shift();
-    particles.push(new P(x,y,vx,vy,size,hue,life));
-  }
-
-  function burst(x,y,count=30,hue=320){
-    for(let i=0;i<count;i++){
-      const ang = rand(0,TAU);
-      const sp = rand(120,520);
-      pushParticle(x, y, Math.cos(ang)*sp, Math.sin(ang)*sp, rand(3,12), hue + rand(-30,40), rand(0.8,1.6));
-    }
-  }
-
-  function bigBloom(x,y){
-    // layered bloom
-    for(let k=0;k<4;k++){
-      burst(x,y, 80 - k*18, 260 + k*24);
-    }
-  }
-
-  // ambient soft generators
-  let ambientTimer = 0;
-  function ambientSpawn(dt){
-    ambientTimer += dt;
-    if(ambientTimer > 0.09){
-      ambientTimer = 0;
-      // spawn along invisible ring around center
-      const W = canvas.width/DPR, H = canvas.height/DPR;
-      const cx = W*0.5, cy = H*0.5;
-      const r = Math.min(W,H)*0.36;
-      const ang = Math.random()*TAU;
-      const x = cx + Math.cos(ang)*r + rand(-20,20);
-      const y = cy + Math.sin(ang)*r + rand(-20,20);
-      pushParticle(x,y, rand(-20,20), rand(-20,20), rand(1.2,6), rand(260,330), rand(0.9,1.6));
-    }
-  }
-
-  // main loop
+  const floaters = [];
+  // ---------- Main loop ----------
   let last = performance.now();
   function loop(now){
-    const dt = Math.min(0.033, (now - last)/1000);
+    const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
-    update(dt);
-    draw();
+    t += dt;
+
+    // clear canvas with gentle gradient
+    const W = canvas.width / DPR;
+    const H = canvas.height / DPR;
+    ctx.clearRect(0,0,W,H);
+
+    // background vignette
+    const bgG = ctx.createLinearGradient(0,0,W,H);
+    bgG.addColorStop(0, 'rgba(10,6,22,0.14)');
+    bgG.addColorStop(1, 'rgba(2,6,12,0.18)');
+    ctx.fillStyle = bgG;
+    ctx.fillRect(0,0,W,H);
+
+    // compute heart geometry
+    const cx = W*0.5;
+    const cy = H*0.52;
+    // size scales with short dimension
+    const baseSize = (Math.min(W,H) / 28);
+    // breathing effect
+    pulse += (pulseTarget - pulse) * (1 - Math.pow(0.03, dt*60));
+    const size = baseSize * (1 + 0.08*Math.sin(t*3.2) + 0.18 * Math.max(0, pulse));
+    const rotation = Math.sin(t*0.8)*0.03;
+
+    // gradient fill for main heart
+    const grad = ctx.createLinearGradient(cx - size*20, cy - size*40, cx + size*20, cy + size*40);
+    grad.addColorStop(0, 'rgba(255,95,168,0.98)');
+    grad.addColorStop(0.45, 'rgba(124,77,255,0.96)');
+    grad.addColorStop(1, 'rgba(0,240,255,0.88)');
+
+    // draw outer glow via multiple scaled fills
+    for(let i=5;i>=1;i--){
+      const alpha = 0.06 * (i);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.filter = `blur(${(8*i)}px)`;
+      const pts = buildHeartPath(cx, cy, size*(1 + i*0.06), rotation);
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for(let j=1;j<pts.length;j++) ctx.lineTo(pts[j].x, pts[j].y);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(255,95,168,${alpha})`;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // filled heart
+    const heartPts = buildHeartPath(cx, cy, size, rotation);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(heartPts[0].x, heartPts[0].y);
+    for(let i=1;i<heartPts.length;i++) ctx.lineTo(heartPts[i].x, heartPts[i].y);
+    ctx.closePath();
+
+    // subtle inner shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 24;
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+
+    // glossy highlight
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.beginPath();
+    ctx.ellipse(cx - size*6, cy - size*10, size*7, size*10, -0.5, 0, TAU);
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.fill();
+    ctx.restore();
+
+    // emitter along heart perimeter
+    timeSinceEmit += dt;
+    if(timeSinceEmit > 0.06){
+      timeSinceEmit = 0;
+      // pick a random point on heart poly
+      const pi = Math.floor(rand(0,heartPts.length-1));
+      const p = heartPts[pi];
+      // emit gentle particles
+      emitBurst(p.x + rand(-4,4), p.y + rand(-4,4), randInt(1,3), 320 + Math.sin(t*2)*40);
+    }
+
+    // update and draw particles
+    for(let i = particles.length-1; i>=0; i--){
+      const p = particles[i];
+      p.update(dt);
+      p.draw(ctx);
+      if(p.life <= 0 || p.size < 0.6) particles.splice(i,1);
+    }
+
+    // floating little hearts
+    if(floaters.length < 10 && Math.random() < 0.02){
+      const angle = rand(0,TAU);
+      const r = size * rand(0.65,1.1);
+      const fx = cx + Math.cos(angle)*r;
+      const fy = cy + Math.sin(angle)*r*0.9;
+      floaters.push(new Floating(fx, fy, rand(8,20), randInt(300,360), Math.random()*2));
+    }
+    for(let i=floaters.length-1;i>=0;i--){
+      const f = floaters[i];
+      f.update(dt);
+      f.draw(ctx, heartPts);
+      if(Math.random() < 0.002 && particles.length < 600){
+        emitBurst(f.x, f.y, randInt(3,8), f.hue);
+      }
+      if(Math.random() < 0.001 && floaters.length > 6) floaters.splice(i,1);
+    }
+
+    // hover pointer interaction: if pointer inside heart, make tiny sparkles
+    if(pointInPoly(pointer.x, pointer.y, heartPts)){
+      // gentle bubble
+      if(Math.random() < 0.22) emitBurst(pointer.x + rand(-6,6), pointer.y + rand(-6,6), randInt(1,3), 340);
+      // soft pulse
+      pulseTarget = clamp(pulseTarget + 0.02, 0, 2.4);
+    } else {
+      if(!pointer.down) pulseTarget = Math.max(0, pulseTarget - 0.03);
+    }
+
+    // subtle sparkles overlay
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for(let i=0;i<8;i++){
+      ctx.beginPath();
+      const x = cx + Math.cos(t*0.7 + i)*size*(0.6 + 0.12*i);
+      const y = cy + Math.sin(t*0.9 - i*0.6)*size*(0.6 + 0.06*i);
+      const s = 1.2 + i*0.4;
+      ctx.fillStyle = `rgba(255,255,255,${0.02 + i*0.01})`;
+      ctx.arc(x,y,s,0,TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // tiny animated outline stroke
+    ctx.save();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = `rgba(255,255,255,0.06)`;
+    ctx.beginPath();
+    ctx.moveTo(heartPts[0].x, heartPts[0].y);
+    for(let i=1;i<heartPts.length;i++) ctx.lineTo(heartPts[i].x, heartPts[i].y);
+    ctx.closePath();
+    ctx.stroke();
+
+    // finish frame
     requestAnimationFrame(loop);
   }
 
-  function update(dt){
-    // move big orbs slowly
-    const W = canvas.width / DPR, H = canvas.height / DPR;
-    for(const o of bigOrbs){
-      o.ang += o.speed * dt * 60 * (0.06 + Math.sin(last*0.001)*0.01);
-      o.x += Math.cos(o.ang)*0.12;
-      o.y += Math.sin(o.ang)*0.08;
-    }
-    ambientSpawn(dt);
-    // pointer attraction when hold
-    if(pointer.down){
-      for(let i=particles.length-1;i>=0;i--){
-        const p = particles[i];
-        const dx = pointer.x - p.x, dy = pointer.y - p.y;
-        const d2 = dx*dx + dy*dy;
-        if(d2 < 220*220){
-          const d = Math.sqrt(d2) + 0.0001;
-          const pull = (1 - clamp(d/220,0,1)) * 420;
-          p.vx += (dx/d) * pull * dt;
-          p.vy += (dy/d) * pull * dt;
-        }
-      }
-    }
-
-    // update particles
-    for(let i=particles.length-1;i>=0;i--){
-      const p = particles[i];
-      p.update(dt);
-      if(p.life <= 0 || p.size < 0.6) particles.splice(i,1);
-    }
+  // initial burst animation sequence
+  function kickoff(){
+    // adaptive size check
+    resize();
+    // center burst
+    const W = canvas.width / DPR;
+    const H = canvas.height / DPR;
+    emitBurst(W*0.5, H*0.52, 120, 340);
+    pulseTarget = 1.8;
+    setTimeout(()=>pulseTarget=0, 900);
   }
-
-  function draw(){
-    const W = canvas.width / DPR, H = canvas.height / DPR;
-    // background base
-    ctx.clearRect(0,0,W,H);
-    // subtle radial vignette
-    const rg = ctx.createRadialGradient(W*0.5,H*0.45, Math.min(W,H)*0.02, W*0.5,H*0.45, Math.max(W,H));
-    rg.addColorStop(0, 'rgba(18,14,34,0.35)');
-    rg.addColorStop(1, 'rgba(2,2,6,0.86)');
-    ctx.fillStyle = rg;
-    ctx.fillRect(0,0,W,H);
-
-    // moving orbs as soft background shapes
-    for(const o of bigOrbs){
-      const g = ctx.createRadialGradient(o.x,o.y, o.r*0.08, o.x,o.y,o.r*1.2);
-      g.addColorStop(0, `hsla(${o.h},90%,65%,0.14)`);
-      g.addColorStop(0.5, `hsla(${(o.h+30)%360},90%,48%,0.08)`);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.ellipse(o.x, o.y, o.r*1.2, o.r, 0, 0, TAU);
-      ctx.fill();
-    }
-
-    // glow ring at center
-    const cx = W*0.5, cy = H*0.5;
-    const ring = Math.min(W,H)*0.22;
-    const rg2 = ctx.createRadialGradient(cx,cy,ring*0.2,cx,cy,ring*1.4);
-    rg2.addColorStop(0, 'rgba(255,255,255,0.02)');
-    rg2.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = rg2;
-    ctx.beginPath();
-    ctx.arc(cx,cy,ring*1.4,0,TAU);
-    ctx.fill();
-
-    // particles (draw in additive manner)
-    for(const p of particles){
-      p.draw(ctx);
-    }
-
-    // subtle center symbol (no explanation, just pretty)
-    ctx.save();
-    ctx.translate(cx,cy);
-    const t = performance.now() * 0.0012;
-    ctx.rotate(Math.sin(t)*0.03);
-    // rings
-    for(let i=0;i<3;i++){
-      ctx.beginPath();
-      ctx.arc(0,0, 28 + i*18 + Math.sin(t*1.3 + i)*6, 0, TAU);
-      ctx.strokeStyle = `hsla(${260 + i*28},90%,60%,${0.06 + i*0.02})`;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-    // core glyph
-    ctx.beginPath();
-    ctx.moveTo(-10,0);
-    ctx.quadraticCurveTo(0,-20,10,0);
-    ctx.quadraticCurveTo(0,14,-10,0);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(255,255,255,0.04)';
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // initial gentle startup bursts
-  const W = canvas.width/DPR, H = canvas.height/DPR;
-  for(let i=0;i<3;i++){
-    bigBloom(W*0.5 + rand(-40,40), H*0.5 + rand(-40,40));
-  }
-
-  // makeOrbs on larger resize
-  window.addEventListener('resize', ()=>{ makeOrbs(); });
 
   // start
   requestAnimationFrame(loop);
+  setTimeout(kickoff, 220);
 
-})();
-</script>
+  // initial pointer positioning (center)
+  pointer.x = canvas.width / DPR / 2;
+  pointer.y = canvas.height / DPR / 2;
+
+  // improve responsiveness on load
+  window.addEventListener('load', resize);
+  </script>
 </body>
 </html>
