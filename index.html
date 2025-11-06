@@ -1,484 +1,527 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Surpresa</title>
-  <style>
-    :root{
-      --bg1:#0f1022;
-      --bg2:#081027;
-      --accent1:#ff5fa8;
-      --accent2:#7c4dff;
-      --accent3:#00f0ff;
-    }
-    html,body{height:100%;margin:0;background:linear-gradient(120deg,var(--bg1),var(--bg2));font-family:Inter,system-ui,Arial;}
-    .wrap{
-      height:100vh;
-      display:grid;
-      place-items:center;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-      overflow:hidden;
-    }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Orbital Playground — Surpresa</title>
+<style>
+  :root{
+    --bg:#07060b;
+    --panel: rgba(255,255,255,0.03);
+    --glass: rgba(255,255,255,0.04);
+  }
+  html,body{height:100%;margin:0;background:radial-gradient(1200px 600px at 10% 10%, #0b0a12 0%, var(--bg) 40%), linear-gradient(180deg,#06050a,#0a0710);font-family:Inter,system-ui,Segoe UI,Arial; color:#fff; -webkit-font-smoothing:antialiased;}
+  .wrap{height:100vh;display:flex;align-items:center;justify-content:center;padding:28px;box-sizing:border-box;}
+  .shell{
+    width:min(1100px,96vw);
+    aspect-ratio:16/9;
+    border-radius:18px;
+    overflow:hidden;
+    position:relative;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
+    box-shadow: 0 18px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.02);
+  }
 
-    /* center card */
-    .stage{
-      width:min(920px,94vw);
-      aspect-ratio:16/9;
-      background: radial-gradient(1200px 600px at 10% 10%, rgba(255,95,168,0.06), transparent 8%),
-                  radial-gradient(900px 400px at 90% 90%, rgba(124,77,255,0.04), transparent 6%),
-                  rgba(255,255,255,0.02);
-      border-radius:22px;
-      box-shadow: 0 10px 40px rgba(2,6,23,0.7), inset 0 1px 0 rgba(255,255,255,0.02);
-      position:relative;
-      overflow:hidden;
-      transform:translateZ(0);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
+  canvas{width:100%;height:100%;display:block;touch-action:none}
 
-    /* subtle glass panel */
-    .hud{
-      position:absolute;
-      top:18px; left:18px;
-      color:rgba(255,255,255,0.85);
-      font-weight:600;
-      letter-spacing:0.6px;
-      font-size:13px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-      padding:8px 12px;
-      border-radius:12px;
-      backdrop-filter: blur(6px) saturate(1.2);
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
+  .topbar{
+    position:absolute;left:18px;top:14px;display:flex;gap:10px;align-items:center;z-index:6;
+  }
+  .dot{width:12px;height:12px;border-radius:50%;background:linear-gradient(180deg,#ff6fa8,#ff2ea6);box-shadow:0 6px 18px rgba(255,46,166,0.22)}
+  .title{font-weight:700;font-size:13px;color:rgba(255,255,255,0.92);padding:8px 12px;border-radius:10px;background:var(--panel);backdrop-filter:blur(6px)}
+  .controls{position:absolute;right:18px;top:14px;display:flex;gap:8px;align-items:center;z-index:6}
+  .btn{font-size:13px;padding:8px 10px;border-radius:10px;background:var(--glass);border:1px solid rgba(255,255,255,0.02);cursor:pointer;color:rgba(255,255,255,0.9)}
+  .hint{position:absolute;left:18px;bottom:18px;font-size:13px;padding:8px 10px;border-radius:10px;background:var(--panel);z-index:6}
+  .legend{position:absolute;right:18px;bottom:18px;font-size:12px;padding:8px 10px;border-radius:10px;background:var(--panel);z-index:6;color:rgba(255,255,255,0.85)}
 
-    .hud .dot{width:9px;height:9px;border-radius:50%;background:var(--accent1);box-shadow:0 0 14px var(--accent1);}
-
-    /* canvas covers stage */
-    canvas{
-      display:block;
-      width:100%;
-      height:100%;
-      object-fit:cover;
-    }
-
-    /* bottom-left floating control hints */
-    .hint{
-      position:absolute;
-      left:18px; bottom:18px;
-      font-size:12px;
-      color:rgba(255,255,255,0.8);
-      background:linear-gradient(180deg, rgba(0,0,0,0.32), rgba(255,255,255,0.02));
-      padding:8px 10px;border-radius:10px;
-      backdrop-filter: blur(6px);
-    }
-
-    /* top-right radial overlay */
-    .glow{
-      position:absolute;
-      right:-30%; top:-30%;
-      width:80%; height:80%;
-      background: radial-gradient(circle at 20% 30%, rgba(255,95,168,0.14), rgba(124,77,255,0.10) 30%, rgba(0,240,255,0.06) 55%, transparent 60%);
-      filter:blur(60px);
-      pointer-events:none;
-      mix-blend-mode:screen;
-    }
-
-    /* subtle footer label */
-    .badge{
-      position:absolute;
-      right:18px; bottom:18px;
-      font-size:11px;color:rgba(255,255,255,0.7);
-      padding:7px 10px;border-radius:10px;
-      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.2));
-      backdrop-filter: blur(6px);
-    }
-
-    /* responsive tweaks */
-    @media (max-width:600px){
-      .stage{border-radius:14px}
-      .hud{font-size:12px;padding:6px 8px}
-      .hint{font-size:11px}
-    }
-  </style>
+  /* small responsive */
+  @media (max-width:640px){
+    .title{font-size:12px;padding:6px 8px}
+    .btn{padding:6px 8px;font-size:12px}
+    .hint{font-size:12px}
+    .legend{font-size:11px}
+  }
+</style>
 </head>
 <body>
   <div class="wrap">
-    <div class="stage" id="stage">
-      <div class="hud"><div class="dot"></div> toque/click — explore</div>
+    <div class="shell" id="shell">
+      <div class="topbar">
+        <div class="dot"></div>
+        <div class="title">orbital playground</div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="add">➕ adicionar corpo</button>
+        <button class="btn" id="clear">🧹 limpar</button>
+        <button class="btn" id="sound">🔊 som: ligado</button>
+      </div>
       <canvas id="c"></canvas>
-      <div class="glow"></div>
-      <div class="hint">Clique, segure ou arraste</div>
-      <div class="badge">✨feito com HTML • CSS • JS</div>
+      <div class="hint">Clique/arraste para criar ou empurrar. Duplo clique para congelar</div>
+      <div class="legend">Toque/Mouse ✦ Gravidade realística ✦ Trilhas</div>
     </div>
   </div>
 
-  <script>
-  // ---------- Utils ----------
-  const TAU = Math.PI * 2;
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-  const rand = (a,b)=>a + Math.random()*(b-a);
-  const randInt = (a,b)=>Math.floor(rand(a,b+1));
+<script>
+/* Orbital Playground
+   - Um sistema físico estilo "mini-universo": corpos com massa, órbitas, colisão elástica aproximada.
+   - Interação: clique para empurrar, arraste para lançar, botão para adicionar corpos, som reativo.
+   - Tudo embutido em um único arquivo, sem bibliotecas externas.
+*/
 
-  // ---------- Setup ----------
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
-  let DPR = Math.min(2, window.devicePixelRatio || 1);
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: true });
+let DPR = Math.min(2, window.devicePixelRatio || 1);
 
-  function resize(){
-    DPR = Math.min(2, window.devicePixelRatio || 1);
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.floor(rect.width * DPR);
-    canvas.height = Math.floor(rect.height * DPR);
-    ctx.setTransform(DPR,0,0,DPR,0,0);
+function fitCanvas(){
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  const r = canvas.getBoundingClientRect();
+  canvas.width = Math.floor(r.width*DPR);
+  canvas.height = Math.floor(r.height*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', fitCanvas, {passive:true});
+fitCanvas();
+
+// ---------- Physics ----------
+const G = 2200; // gravity constant (tune)
+const bodies = []; // {x,y,vx,vy,mass,r,color,trail:[]}
+let trailsEnabled = true;
+let running = true;
+
+function rand(min,max){return min + Math.random()*(max-min);}
+function hueColor(h,s=85,l=60,a=1){ return `hsla(${h},${s}%,${l}%,${a})`; }
+
+// create random body
+function createBody(x,y,mass,hue){
+  const r = Math.max(6, Math.sqrt(mass)*2.6);
+  const b = {
+    x,y,
+    vx: rand(-40,40),
+    vy: rand(-40,40),
+    mass,
+    r,
+    hue,
+    color: hueColor(hue,92,55,1),
+    trail: []
+  };
+  bodies.push(b);
+  return b;
+}
+
+// initial demo bodies (planets + central star)
+function seedDemo(){
+  bodies.length = 0;
+  const W = canvas.width/DPR, H = canvas.height/DPR;
+  // central massive object
+  createBody(W*0.5, H*0.5, 4200, rand(280,340)).vx = 0; // big slow
+  // orbiting planets
+  for(let i=0;i<6;i++){
+    const ang = i/6*Math.PI*2 + 0.3;
+    const dist = 90 + i*60 + rand(-8,8);
+    const x = W*0.5 + Math.cos(ang)*dist;
+    const y = H*0.5 + Math.sin(ang)*dist;
+    const mass = rand(60,460);
+    const b = createBody(x,y,mass, rand(200,360));
+    // set near-circular velocity
+    const dx = x - W*0.5, dy = y - H*0.5;
+    const distSq = Math.max(16, dx*dx+dy*dy);
+    const speed = Math.sqrt(G * bodies[0].mass / distSq);
+    const dir = Math.atan2(dy,dx) + Math.PI/2;
+    b.vx = Math.cos(dir)*speed + rand(-6,6);
+    b.vy = Math.sin(dir)*speed + rand(-6,6);
   }
-  window.addEventListener('resize', resize, {passive:true});
-  resize();
+}
+seedDemo();
 
-  // ---------- Heart path parametric ----------
-  // parametric heart function (x(t), y(t)) centered in given box
-  function heartPoint(t, size){
-    // classic heart parametric scaled
-    // t in [0,2PI]
-    const x = 16*Math.pow(Math.sin(t),3);
-    const y = 13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t);
-    return {x: x * size, y: -y * size}; // invert y
-  }
+// physics step
+function step(dt){
+  if(!running) return;
+  const n = bodies.length;
+  // pairwise gravity
+  for(let i=0;i<n;i++){
+    const A = bodies[i];
+    for(let j=i+1;j<n;j++){
+      const B = bodies[j];
+      const dx = B.x - A.x;
+      const dy = B.y - A.y;
+      const dist2 = dx*dx + dy*dy;
+      const dist = Math.sqrt(dist2) + 0.0001;
+      const f = (G * A.mass * B.mass) / (dist2 + (A.r+B.r)*(A.r+B.r)*0.6);
+      const ax = (f / A.mass) * (dx / dist);
+      const bx = (f / B.mass) * (-dx / dist);
+      const ay = (f / A.mass) * (dy / dist);
+      const by = (f / B.mass) * (-dy / dist);
+      A.vx += ax * dt;
+      A.vy += ay * dt;
+      B.vx += bx * dt;
+      B.vy += by * dt;
 
-  // convert parametric to polygon approximations
-  function buildHeartPath(cx, cy, size, rotation=0){
-    const pts = [];
-    const steps = 180;
-    for(let i=0;i<=steps;i++){
-      const t = i/steps * TAU;
-      const p = heartPoint(t, size);
-      // rotate
-      const rx = p.x*Math.cos(rotation) - p.y*Math.sin(rotation);
-      const ry = p.x*Math.sin(rotation) + p.y*Math.cos(rotation);
-      pts.push({x: cx + rx, y: cy + ry});
-    }
-    return pts;
-  }
-
-  // ---------- Particles ----------
-  class Particle{
-    constructor(x,y, vx, vy, size, life, hue, glow){
-      this.x = x; this.y = y; this.vx = vx; this.vy = vy;
-      this.size = size; this.life = life; this.maxLife = life;
-      this.hue = hue; this.glow = glow;
-      this.drag = 0.992 - Math.random()*0.005;
-      this.spin = (Math.random()-0.5)*0.04;
-    }
-    update(dt){
-      this.vx *= this.drag;
-      this.vy *= this.drag;
-      this.vy += 20*dt; // gravity
-      this.x += this.vx*dt;
-      this.y += this.vy*dt;
-      this.size *= (1 - 0.14*dt);
-      this.life -= dt;
-    }
-    draw(ctx){
-      const alpha = clamp(this.life/this.maxLife, 0,1);
-      ctx.save();
-      ctx.translate(this.x, this.y);
-      ctx.rotate(this.spin);
-      const g = ctx.createRadialGradient(0,0,this.size*0.1, 0,0,this.size*1.6);
-      g.addColorStop(0, `hsla(${this.hue},95%,65%,${alpha})`);
-      g.addColorStop(1, `hsla(${(this.hue+40)%360},90%,40%,0)`);
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(0,0,this.size,0,TAU);
-      ctx.fill();
-      ctx.restore();
-
-      if(this.glow){
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.fillStyle = `hsla(${this.hue},95%,65%,${alpha*0.08})`;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size*6, 0, TAU);
-        ctx.fill();
-        ctx.restore();
+      // simple collision - merge small into big (inelastic-ish)
+      if(dist < (A.r + B.r) * 0.92){
+        // keep center of mass
+        const big = (A.mass >= B.mass) ? A : B;
+        const small = (big === A) ? B : A;
+        const totalM = big.mass + small.mass;
+        big.vx = (big.vx*big.mass + small.vx*small.mass)/totalM;
+        big.vy = (big.vy*big.mass + small.vy*small.mass)/totalM;
+        big.mass = totalM;
+        big.r = Math.max(6, Math.sqrt(big.mass)*2.6);
+        // absorb color hue average
+        big.hue = (big.hue * big.mass + small.hue * small.mass) / totalM;
+        // remove small
+        const idx = bodies.indexOf(small);
+        if(idx >= 0) bodies.splice(idx,1);
       }
     }
   }
 
-  const particles = [];
+  // integrate
+  for(const b of bodies){
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    // friction tiny
+    b.vx *= 0.9999;
+    b.vy *= 0.9999;
+    // trails
+    if(trailsEnabled){
+      b.trail.push({x:b.x,y:b.y,a:1});
+      if(b.trail.length > 80) b.trail.shift();
+      // fade
+      for(const t of b.trail) t.a -= 0.01*dt*60;
+    } else b.trail = [];
+  }
+}
 
-  function emitBurst(x,y, count=40, hueBase=330){
-    for(let i=0;i<count;i++){
-      const ang = rand(0,TAU);
-      const spd = rand(60,420);
-      const vx = Math.cos(ang)*spd;
-      const vy = Math.sin(ang)*spd;
-      const sz = rand(3,16);
-      const life = rand(0.6,1.7);
-      const hue = (hueBase + rand(-30,40)) % 360;
-      const glow = Math.random() > 0.2;
-      particles.push(new Particle(x,y,vx,vy,sz,life,hue,glow));
-    }
+// ---------- Rendering ----------
+function render(){
+  const W = canvas.width/DPR, H = canvas.height/DPR;
+  // background
+  ctx.clearRect(0,0,W,H);
+  // subtle noise gradient
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'rgba(0,0,0,0.18)');
+  g.addColorStop(1,'rgba(6,4,10,0.2)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+
+  // starfield
+  drawStars(W,H);
+
+  // glow for each body (back to front)
+  for(const b of bodies){
+    const glow = Math.min(1, Math.log10(b.mass+20)/3);
+    const rg = ctx.createRadialGradient(b.x,b.y,b.r*0.2,b.x,b.y,b.r*6);
+    rg.addColorStop(0, `hsla(${b.hue},95%,62%,${0.18*glow})`);
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = rg;
+    ctx.fillRect(b.x-b.r*6, b.y-b.r*6, b.r*12, b.r*12);
   }
 
-  // gentle continuous emitter along heart
-  let timeSinceEmit = 0;
-
-  // ---------- Interactive heart pulse ----------
-  let pulse = 0;
-  let pulseTarget = 0;
-  let t = 0;
-
-  // heart path for collision checks and fill
-  function drawHeartFilled(ctx, cx, cy, size, phaseRotation, gradient){
-    const pts = buildHeartPath(cx, cy, size, phaseRotation);
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for(let i=1;i<pts.length;i++){
-      ctx.lineTo(pts[i].x, pts[i].y);
-    }
-    ctx.closePath();
-    ctx.fillStyle = gradient;
-    ctx.fill();
-    ctx.restore();
-    return pts;
-  }
-
-  // helper: point inside polygon (ray-casting)
-  function pointInPoly(x,y, poly){
-    let inside=false;
-    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-      const xi=poly[i].x, yi=poly[i].y;
-      const xj=poly[j].x, yj=poly[j].y;
-      const intersect = ((yi>y) !== (yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi);
-      if(intersect) inside = !inside;
-    }
-    return inside;
-  }
-
-  // ---------- Mouse / Touch ----------
-  const stage = document.getElementById('stage');
-  let pointer = {x:0,y:0,down:false};
-  function setPointerFromEvent(e){
-    const r = canvas.getBoundingClientRect();
-    let clientX, clientY;
-    if(e.touches && e.touches[0]) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
-    else { clientX = e.clientX; clientY = e.clientY; }
-    pointer.x = (clientX - r.left);
-    pointer.y = (clientY - r.top);
-  }
-
-  window.addEventListener('pointerdown', (ev)=>{ pointer.down=true; setPointerFromEvent(ev); pointer.id=ev.pointerId; pulseTarget=1.9; emitBurst(pointer.x, pointer.y, 55, 330); });
-  window.addEventListener('pointermove', (ev)=>{ setPointerFromEvent(ev); if(pointer.down){ emitBurst(pointer.x,pointer.y, 6, 320); }} , {passive:true});
-  window.addEventListener('pointerup', ()=>{ pointer.down=false; pulseTarget=0; });
-  window.addEventListener('pointercancel', ()=>{ pointer.down=false; pulseTarget=0; });
-
-  // ---------- Floating hearts (soft shapes) ----------
-  class Floating{
-    constructor(x,y,size,hue,delay){
-      this.x=x; this.y=y; this.size=size; this.hue=hue; this.delay=delay;
-      this.phase = Math.random()*TAU;
-    }
-    update(dt){
-      this.phase += dt*(0.6 + this.size*0.02);
-      this.y += Math.sin(this.phase*0.7 + this.delay)*0.2;
-      this.x += Math.cos(this.phase*0.8 + this.delay)*0.12;
-    }
-    draw(ctx, pts){
-      // draw small heart at x,y relative to stage
-      ctx.save();
-      ctx.translate(this.x, this.y);
-      ctx.scale(1,1);
+  // trails
+  for(const b of bodies){
+    if(b.trail.length > 2){
       ctx.beginPath();
-      // simple heart using bezier
-      const s = this.size;
-      ctx.moveTo(0, -s*0.45);
-      ctx.bezierCurveTo(s*0.5, -s*0.85, s*1.3, -s*0.2, 0, s*0.8);
-      ctx.bezierCurveTo(-s*1.3, -s*0.2, -s*0.5, -s*0.85, 0, -s*0.45);
-      ctx.closePath();
-      ctx.fillStyle = `hsla(${this.hue},92%,60%,0.88)`;
-      ctx.fill();
-      ctx.restore();
-    }
-  }
-
-  const floaters = [];
-  // ---------- Main loop ----------
-  let last = performance.now();
-  function loop(now){
-    const dt = Math.min(0.033, (now - last) / 1000);
-    last = now;
-    t += dt;
-
-    // clear canvas with gentle gradient
-    const W = canvas.width / DPR;
-    const H = canvas.height / DPR;
-    ctx.clearRect(0,0,W,H);
-
-    // background vignette
-    const bgG = ctx.createLinearGradient(0,0,W,H);
-    bgG.addColorStop(0, 'rgba(10,6,22,0.14)');
-    bgG.addColorStop(1, 'rgba(2,6,12,0.18)');
-    ctx.fillStyle = bgG;
-    ctx.fillRect(0,0,W,H);
-
-    // compute heart geometry
-    const cx = W*0.5;
-    const cy = H*0.52;
-    // size scales with short dimension
-    const baseSize = (Math.min(W,H) / 28);
-    // breathing effect
-    pulse += (pulseTarget - pulse) * (1 - Math.pow(0.03, dt*60));
-    const size = baseSize * (1 + 0.08*Math.sin(t*3.2) + 0.18 * Math.max(0, pulse));
-    const rotation = Math.sin(t*0.8)*0.03;
-
-    // gradient fill for main heart
-    const grad = ctx.createLinearGradient(cx - size*20, cy - size*40, cx + size*20, cy + size*40);
-    grad.addColorStop(0, 'rgba(255,95,168,0.98)');
-    grad.addColorStop(0.45, 'rgba(124,77,255,0.96)');
-    grad.addColorStop(1, 'rgba(0,240,255,0.88)');
-
-    // draw outer glow via multiple scaled fills
-    for(let i=5;i>=1;i--){
-      const alpha = 0.06 * (i);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.filter = `blur(${(8*i)}px)`;
-      const pts = buildHeartPath(cx, cy, size*(1 + i*0.06), rotation);
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for(let j=1;j<pts.length;j++) ctx.lineTo(pts[j].x, pts[j].y);
-      ctx.closePath();
-      ctx.fillStyle = `rgba(255,95,168,${alpha})`;
-      ctx.fill();
-      ctx.restore();
-    }
-
-    // filled heart
-    const heartPts = buildHeartPath(cx, cy, size, rotation);
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(heartPts[0].x, heartPts[0].y);
-    for(let i=1;i<heartPts.length;i++) ctx.lineTo(heartPts[i].x, heartPts[i].y);
-    ctx.closePath();
-
-    // subtle inner shadow
-    ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 24;
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.restore();
-
-    // glossy highlight
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    ctx.beginPath();
-    ctx.ellipse(cx - size*6, cy - size*10, size*7, size*10, -0.5, 0, TAU);
-    ctx.fillStyle = 'rgba(255,255,255,0.07)';
-    ctx.fill();
-    ctx.restore();
-
-    // emitter along heart perimeter
-    timeSinceEmit += dt;
-    if(timeSinceEmit > 0.06){
-      timeSinceEmit = 0;
-      // pick a random point on heart poly
-      const pi = Math.floor(rand(0,heartPts.length-1));
-      const p = heartPts[pi];
-      // emit gentle particles
-      emitBurst(p.x + rand(-4,4), p.y + rand(-4,4), randInt(1,3), 320 + Math.sin(t*2)*40);
-    }
-
-    // update and draw particles
-    for(let i = particles.length-1; i>=0; i--){
-      const p = particles[i];
-      p.update(dt);
-      p.draw(ctx);
-      if(p.life <= 0 || p.size < 0.6) particles.splice(i,1);
-    }
-
-    // floating little hearts
-    if(floaters.length < 10 && Math.random() < 0.02){
-      const angle = rand(0,TAU);
-      const r = size * rand(0.65,1.1);
-      const fx = cx + Math.cos(angle)*r;
-      const fy = cy + Math.sin(angle)*r*0.9;
-      floaters.push(new Floating(fx, fy, rand(8,20), randInt(300,360), Math.random()*2));
-    }
-    for(let i=floaters.length-1;i>=0;i--){
-      const f = floaters[i];
-      f.update(dt);
-      f.draw(ctx, heartPts);
-      if(Math.random() < 0.002 && particles.length < 600){
-        emitBurst(f.x, f.y, randInt(3,8), f.hue);
+      for(let i=0;i<b.trail.length-1;i++){
+        const p = b.trail[i], q = b.trail[i+1];
+        ctx.moveTo(p.x,p.y);
+        ctx.lineTo(q.x,q.y);
       }
-      if(Math.random() < 0.001 && floaters.length > 6) floaters.splice(i,1);
+      ctx.strokeStyle = `hsla(${b.hue},95%,60%,0.14)`;
+      ctx.lineWidth = Math.max(1, Math.log2(b.r)*0.9);
+      ctx.lineCap = 'round';
+      ctx.stroke();
     }
+  }
 
-    // hover pointer interaction: if pointer inside heart, make tiny sparkles
-    if(pointInPoly(pointer.x, pointer.y, heartPts)){
-      // gentle bubble
-      if(Math.random() < 0.22) emitBurst(pointer.x + rand(-6,6), pointer.y + rand(-6,6), randInt(1,3), 340);
-      // soft pulse
-      pulseTarget = clamp(pulseTarget + 0.02, 0, 2.4);
-    } else {
-      if(!pointer.down) pulseTarget = Math.max(0, pulseTarget - 0.03);
-    }
-
-    // subtle sparkles overlay
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for(let i=0;i<8;i++){
-      ctx.beginPath();
-      const x = cx + Math.cos(t*0.7 + i)*size*(0.6 + 0.12*i);
-      const y = cy + Math.sin(t*0.9 - i*0.6)*size*(0.6 + 0.06*i);
-      const s = 1.2 + i*0.4;
-      ctx.fillStyle = `rgba(255,255,255,${0.02 + i*0.01})`;
-      ctx.arc(x,y,s,0,TAU);
-      ctx.fill();
-    }
-    ctx.restore();
-
-    // tiny animated outline stroke
-    ctx.save();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = `rgba(255,255,255,0.06)`;
+  // bodies (front)
+  // sort by radius for painter's order
+  const sorted = bodies.slice().sort((a,b)=>a.r - b.r);
+  for(const b of sorted){
+    // ring
     ctx.beginPath();
-    ctx.moveTo(heartPts[0].x, heartPts[0].y);
-    for(let i=1;i<heartPts.length;i++) ctx.lineTo(heartPts[i].x, heartPts[i].y);
-    ctx.closePath();
-    ctx.stroke();
+    ctx.arc(b.x,b.y,b.r*1.2,0,Math.PI*2);
+    ctx.fillStyle = `rgba(255,255,255,0.02)`;
+    ctx.fill();
 
-    // finish frame
-    requestAnimationFrame(loop);
+    // core
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+    // radial gradient core
+    const cg = ctx.createRadialGradient(b.x - b.r*0.3, b.y - b.r*0.3, b.r*0.1, b.x, b.y, b.r);
+    cg.addColorStop(0, `hsla(${b.hue},100%,72%,1)`);
+    cg.addColorStop(0.55, `hsla(${(b.hue+30)%360},95%,48%,0.95)`);
+    cg.addColorStop(1, `rgba(0,0,0,0.06)`);
+    ctx.fillStyle = cg;
+    ctx.fill();
+
+    // tiny specular
+    ctx.beginPath();
+    ctx.ellipse(b.x - b.r*0.35, b.y - b.r*0.45, b.r*0.35, b.r*0.55, -0.7, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fill();
+  }
+}
+
+// starfield cache
+let stars = [];
+function makeStars(W,H){
+  stars = [];
+  const count = Math.round((W*H)/12000);
+  for(let i=0;i<count;i++){
+    stars.push({
+      x: Math.random()*W,
+      y: Math.random()*H,
+      r: Math.random()*1.4+0.2,
+      a: rand(0.08,0.8),
+      hue: rand(200,340)
+    });
+  }
+}
+function drawStars(W,H){
+  if(!stars.length || stars.length < Math.round((W*H)/12000)) makeStars(W,H);
+  for(const s of stars){
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fillStyle = `hsla(${s.hue},80%,80%,${s.a*0.9})`;
+    ctx.fill();
+  }
+}
+
+// ---------- Interaction ----------
+let pointer = {x:0,y:0,down:false,dx:0,dy:0,downStart:null};
+canvas.addEventListener('pointerdown', (e)=>{
+  const r = canvas.getBoundingClientRect();
+  pointer.x = (e.clientX - r.left);
+  pointer.y = (e.clientY - r.top);
+  pointer.down = true;
+  pointer.dx = 0; pointer.dy = 0;
+  pointer.downStart = {x:pointer.x,y:pointer.y,t:performance.now()};
+  // if clicked on body, pick it
+  pick = pickBody(pointer.x,pointer.y);
+  // small push
+  if(!pick){
+    // create small projectile-like body where clicked
+    const mass = rand(24,120);
+    const b = createBody(pointer.x, pointer.y, mass, rand(200,360));
+    // soft impulse away from center
+    const W = canvas.width/DPR, H = canvas.height/DPR;
+    const cx=W/2, cy=H/2;
+    const dir = Math.atan2(pointer.y-cy, pointer.x-cx);
+    const speed = rand(120,320);
+    b.vx = Math.cos(dir)*speed * 0.5;
+    b.vy = Math.sin(dir)*speed * 0.5;
+    // trigger sound
+    playPing(b.mass);
+  }
+});
+canvas.addEventListener('pointermove', (e)=>{
+  const r = canvas.getBoundingClientRect();
+  const nx = (e.clientX - r.left);
+  const ny = (e.clientY - r.top);
+  pointer.dx = nx - pointer.x;
+  pointer.dy = ny - pointer.y;
+  pointer.x = nx; pointer.y = ny;
+  // if dragging and picked, move body by setting velocity
+  if(pointer.down && pick){
+    pick.x = pointer.x;
+    pick.y = pointer.y;
+    pick.vx = pointer.dx * 60;
+    pick.vy = pointer.dy * 60;
+  }
+});
+canvas.addEventListener('pointerup', (e)=>{
+  pointer.down = false;
+  // if quick drag (launch) create impulse from drag
+  if(pick){
+    // small release sound
+    playPing(pick.mass*0.5);
+    pick = null;
+  }
+});
+canvas.addEventListener('dblclick', ()=>{
+  running = !running;
+});
+
+// picking
+let pick = null;
+function pickBody(x,y){
+  for(let i=bodies.length-1;i>=0;i--){
+    const b = bodies[i];
+    const dx = x-b.x, dy = y-b.y;
+    if(dx*dx+dy*dy <= b.r*b.r) return b;
+  }
+  return null;
+}
+
+// add button
+document.getElementById('add').addEventListener('click', ()=>{
+  const W = canvas.width/DPR, H = canvas.height/DPR;
+  const x = rand(120, W-120), y = rand(120, H-120);
+  const mass = rand(30,700);
+  createBody(x,y,mass, rand(200,360));
+});
+
+// clear
+document.getElementById('clear').addEventListener('click', ()=>{ bodies.length = 0; seedDemo(); });
+
+// sound toggle
+let soundOn = true;
+const sndBtn = document.getElementById('sound');
+sndBtn.addEventListener('click', ()=>{
+  soundOn = !soundOn;
+  sndBtn.textContent = soundOn ? '🔊 som: ligado' : '🔇 som: off';
+  if(!soundOn) stopAudio();
+});
+
+// ---------- Audio (WebAudio) ----------
+let audioCtx = null;
+let masterGain = null;
+let oscillator = null;
+let playing = false;
+
+function ensureAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.0001;
+    masterGain.connect(audioCtx.destination);
+    // gentle ambient oscillator
+    oscillator = audioCtx.createOscillator();
+    const oscGain = audioCtx.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 80;
+    oscGain.gain.value = 0.0008;
+    oscillator.connect(oscGain);
+    oscGain.connect(masterGain);
+    oscillator.start();
+    // periodic gentle harmonic pulses
+    startAmbientPulse();
+    // fade in
+    fadeGainTo(0.06, 0.6);
+    playing = true;
+  }
+}
+
+function fadeGainTo(target, secs=0.6){
+  if(!masterGain) return;
+  masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+  masterGain.gain.linearRampToValueAtTime(target, audioCtx.currentTime + secs);
+}
+
+function stopAudio(){
+  if(!audioCtx) return;
+  fadeGainTo(0.0001, 0.6);
+}
+
+function playPing(mass){
+  if(!soundOn) return;
+  ensureAudio();
+  if(!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = (Math.random() > 0.5) ? 'sine' : 'triangle';
+  // pitch scaled by mass
+  const freq = Math.min(1200, 120 + Math.sqrt(Math.max(4,mass)) * 18);
+  o.frequency.value = freq;
+  g.gain.value = 0.0001;
+  o.connect(g);
+  g.connect(masterGain);
+  g.gain.linearRampToValueAtTime(0.06, now + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+  o.start(now);
+  o.stop(now + 1.0);
+}
+
+// ambient pulses (subtle)
+function startAmbientPulse(){
+  if(!audioCtx) return;
+  const t = audioCtx.currentTime;
+  // small sweep on main oscillator
+  oscillator.frequency.cancelScheduledValues(t);
+  const low = 28 + Math.random()*12;
+  const high = 60 + Math.random()*40;
+  oscillator.frequency.setValueAtTime(low, t);
+  oscillator.frequency.linearRampToValueAtTime(high, t + 4 + Math.random()*6);
+  oscillator.frequency.linearRampToValueAtTime(low, t + 10 + Math.random()*8);
+  // schedule next
+  setTimeout(()=>{ if(playing) startAmbientPulse(); }, 8000 + Math.random()*8000);
+}
+
+// ---------- Visual helpers ----------
+let lastTime = performance.now();
+function frame(now){
+  const dt = Math.min(0.033, (now - lastTime)/1000);
+  lastTime = now;
+  // physics
+  step(dt);
+  // audio reactive: adjust ambient frequency based on total kinetic energy
+  if(soundOn && audioCtx && masterGain){
+    const ke = bodies.reduce((s,b)=> s + 0.5*b.mass*(b.vx*b.vx + b.vy*b.vy), 0);
+    const target = clamp01(Math.log10(1 + ke) / 4);
+    // modulate oscillator frequency
+    oscillator.frequency.setTargetAtTime(40 + target*260, audioCtx.currentTime, 0.3);
+    // modulate master gain slightly
+    fadeGainTo(0.02 + target*0.08, 0.18);
   }
 
-  // initial burst animation sequence
-  function kickoff(){
-    // adaptive size check
-    resize();
-    // center burst
-    const W = canvas.width / DPR;
-    const H = canvas.height / DPR;
-    emitBurst(W*0.5, H*0.52, 120, 340);
-    pulseTarget = 1.8;
-    setTimeout(()=>pulseTarget=0, 900);
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// clamp helper
+function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+
+// ---------- Utilities + initial settings ----------
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+// initial auto-play audio only if user interacts
+window.addEventListener('pointerdown', function firstTouch(){
+  if(soundOn) ensureAudio();
+  window.removeEventListener('pointerdown', firstTouch);
+}, {passive:true});
+
+// small responsive star regen on resize
+window.addEventListener('resize', ()=>{ makeStars(canvas.width/DPR, canvas.height/DPR); });
+
+// helper: create orbit demonstration on long press
+let longPressTimer = null;
+canvas.addEventListener('pointerdown', (e)=>{
+  longPressTimer = setTimeout(()=>{
+    // create pair to show slingshot
+    const W = canvas.width/DPR, H = canvas.height/DPR;
+    const x = pointer.x, y = pointer.y;
+    const big = createBody(W*0.5, H*0.5, rand(1800,4200), rand(280,360));
+    const small = createBody(x,y, rand(40,120), rand(200,360));
+    // put small in orbit
+    const dx = small.x - big.x, dy = small.y - big.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    const speed = Math.sqrt(G * big.mass / Math.max(10, dist));
+    const dir = Math.atan2(dy,dx) - Math.PI/2;
+    small.vx = Math.cos(dir)*speed*1.02;
+    small.vy = Math.sin(dir)*speed*1.02;
+    playPing(small.mass);
+  }, 650);
+});
+canvas.addEventListener('pointerup', ()=>{ clearTimeout(longPressTimer); });
+
+// initial visual tweak
+makeStars(canvas.width/DPR, canvas.height/DPR);
+
+// small UI polish: animate hint blink
+(function animateUI(){
+  const hint = document.querySelector('.hint');
+  let op = 1; let d = -0.008;
+  function u(){
+    op += d;
+    if(op <= 0.6 || op >= 1) d *= -1;
+    hint.style.opacity = 0.6 + (op-0.6)*0.8;
+    requestAnimationFrame(u);
   }
+  u();
+})();
 
-  // start
-  requestAnimationFrame(loop);
-  setTimeout(kickoff, 220);
-
-  // initial pointer positioning (center)
-  pointer.x = canvas.width / DPR / 2;
-  pointer.y = canvas.height / DPR / 2;
-
-  // improve responsiveness on load
-  window.addEventListener('load', resize);
-  </script>
+</script>
 </body>
 </html>
